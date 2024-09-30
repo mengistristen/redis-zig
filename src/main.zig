@@ -25,8 +25,8 @@ pub fn main() !void {
     while (true) {
         const connection = try listener.accept();
 
-        _ = try std.Thread.spawn(.{}, handleConnection, .{connection});
+        try stdout.print("accepted new connection\n", .{});
 
-        try stdout.print("accepted new connection", .{});
+        _ = try std.Thread.spawn(.{}, handleConnection, .{connection});
     }
 }
