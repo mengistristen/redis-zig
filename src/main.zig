@@ -19,9 +19,7 @@ pub fn main() !void {
         const reader = connection.stream.reader();
         var buffer: [256]u8 = undefined;
 
-        while (try reader.readUntilDelimiterOrEof(&buffer, '\n')) |data| {
-            try stdout.print("data: {s}", .{data});
-
+        while (try reader.read(&buffer) > 0) {
             _ = try connection.stream.write("+PONG\r\n");
         }
 
