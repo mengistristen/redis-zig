@@ -1,6 +1,17 @@
 const std = @import("std");
 const net = std.net;
 
+fn handleConnection(conn: net.Server.Connection) !void {
+    const reader = conn.stream.reader();
+    var buffer: [256]u8 = undefined;
+
+    while (try reader.read(&buffer) > 0) {
+        _ = try conn.stream.write("+PONG\r\n");
+    }
+
+    conn.stream.close();
+}
+
 pub fn main() !void {
     const stdout = std.io.getStdOut().writer();
 
@@ -14,15 +25,8 @@ pub fn main() !void {
     while (true) {
         const connection = try listener.accept();
 
+        _ = try std.Thread.spawn(.{}, handleConnection, .{connection});
+
         try stdout.print("accepted new connection", .{});
-
-        const reader = connection.stream.reader();
-        var buffer: [256]u8 = undefined;
-
-        while (try reader.read(&buffer) > 0) {
-            _ = try connection.stream.write("+PONG\r\n");
-        }
-
-        connection.stream.close();
     }
 }
