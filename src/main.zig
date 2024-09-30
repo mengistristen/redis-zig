@@ -13,9 +13,15 @@ pub fn main() !void {
 
     while (true) {
         const connection = try listener.accept();
+
         try stdout.print("accepted new connection", .{});
 
-        _ = try connection.stream.write("+PONG\r\n");
+        const reader = connection.stream.reader();
+        var buffer: [256]u8 = undefined;
+
+        while (try reader.readUntilDelimiterOrEof(&buffer, '\n')) |_| {
+            _ = try connection.stream.write("+PONG\r\n");
+        }
 
         connection.stream.close();
     }
