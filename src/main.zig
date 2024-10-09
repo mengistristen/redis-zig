@@ -30,6 +30,8 @@ fn handleCommand(conn: net.Server.Connection, value: resp.Value) !void {
 }
 
 fn handleConnection(conn: net.Server.Connection, allocator: Allocator) !void {
+    defer conn.stream.close();
+
     const reader = conn.stream.reader();
     var buffer: [buff_size]u8 = undefined;
 
@@ -56,8 +58,6 @@ fn handleConnection(conn: net.Server.Connection, allocator: Allocator) !void {
             };
         }
     }
-
-    conn.stream.close();
 }
 
 pub fn main() !void {
