@@ -30,7 +30,7 @@ const Array = struct {
     raw: []const u8,
 };
 
-const Value = union(Tag) {
+pub const Value = union(Tag) {
     const Self = @This();
 
     simple_string: SimpleString,

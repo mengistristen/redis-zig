@@ -7,6 +7,28 @@ const Allocator = std.mem.Allocator;
 
 const buff_size: usize = 1024;
 
+fn handleCommand(conn: net.Server.Connection, value: resp.Value) !void {
+    const args = (try value.unwrapArray()).data;
+
+    if (args.len < 1) {
+        return error.MissingCommand;
+    }
+
+    const command = (try args[0].unwrapBulkString()).data;
+
+    if (std.ascii.eqlIgnoreCase("ping", command)) {
+        _ = try conn.stream.write("+PONG\r\n");
+    } else if (std.ascii.eqlIgnoreCase("echo", command)) {
+        if (args.len < 2) {
+            return error.MissingArgument;
+        }
+
+        const paramRaw = (try args[1].unwrapBulkString()).raw;
+
+        _ = try conn.stream.write(paramRaw);
+    }
+}
+
 fn handleConnection(conn: net.Server.Connection, allocator: Allocator) !void {
     const reader = conn.stream.reader();
     var buffer: [buff_size]u8 = undefined;
@@ -29,25 +51,9 @@ fn handleConnection(conn: net.Server.Connection, allocator: Allocator) !void {
         if (try parser.next()) |data| {
             defer data.deinit(allocator);
 
-            const args = (try data.unwrapArray()).data;
-
-            if (args.len < 1) {
-                return error.MissingCommand;
-            }
-
-            const command = (try args[0].unwrapBulkString()).data;
-
-            if (std.ascii.eqlIgnoreCase("ping", command)) {
-                _ = try conn.stream.write("+PONG\r\n");
-            } else if (std.ascii.eqlIgnoreCase("echo", command)) {
-                if (args.len < 2) {
-                    return error.MissingArgument;
-                }
-
-                const paramRaw = (try args[1].unwrapBulkString()).raw;
-
-                _ = try conn.stream.write(paramRaw);
-            }
+            handleCommand(conn, data) catch {
+                _ = try conn.stream.write("-failed to process command\r\n");
+            };
         }
     }
 
