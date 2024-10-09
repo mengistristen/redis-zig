@@ -11,7 +11,19 @@ fn handleConnection(conn: net.Server.Connection, allocator: Allocator) !void {
     const reader = conn.stream.reader();
     var buffer: [buff_size]u8 = undefined;
 
-    while (try reader.read(&buffer) > 0) {
+    while (true) {
+        const bytes_read = reader.read(&buffer) catch |err| {
+            if (err == error.ConnectionResetByPeer) {
+                break;
+            } else {
+                return err;
+            }
+        };
+
+        if (bytes_read == 0) {
+            break;
+        }
+
         var parser = resp.Parser.init(&buffer, allocator);
 
         if (try parser.next()) |data| {
@@ -26,8 +38,6 @@ fn handleConnection(conn: net.Server.Connection, allocator: Allocator) !void {
                     const commandBulk = try input.data[0].unwrapBulkString();
                     const commandLower = try std.ascii.allocLowerString(allocator, commandBulk.data);
                     defer allocator.free(commandLower);
-
-                    std.debug.print("command: {s}\n", .{commandLower});
 
                     if (std.mem.eql(u8, "ping", commandLower)) {
                         _ = try conn.stream.write("+PONG\r\n");
