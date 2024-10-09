@@ -78,6 +78,8 @@ pub fn main() !void {
 
         try stdout.print("accepted new connection\n", .{});
 
-        _ = try std.Thread.spawn(.{}, handleConnection, .{ connection, allocator });
+        const thread = try std.Thread.spawn(.{}, handleConnection, .{ connection, allocator });
+
+        thread.detach();
     }
 }
