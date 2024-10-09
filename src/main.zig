@@ -32,7 +32,7 @@ fn handleConnection(conn: net.Server.Connection, allocator: Allocator) !void {
             switch (data) {
                 .array => |input| {
                     if (input.data.len < 1) {
-                        return error.Todo;
+                        return error.MissingCommand;
                     }
 
                     const commandBulk = try input.data[0].unwrapBulkString();
@@ -43,7 +43,7 @@ fn handleConnection(conn: net.Server.Connection, allocator: Allocator) !void {
                         _ = try conn.stream.write("+PONG\r\n");
                     } else if (std.mem.eql(u8, "echo", commandLower)) {
                         if (input.data.len < 2) {
-                            return error.Todo;
+                            return error.MissingArgument;
                         }
 
                         const paramBulk = try input.data[1].unwrapBulkString();
@@ -52,7 +52,7 @@ fn handleConnection(conn: net.Server.Connection, allocator: Allocator) !void {
                     }
                 },
                 else => {
-                    return error.Todo;
+                    return error.InvalidRequest;
                 },
             }
         }

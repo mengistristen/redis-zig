@@ -1,7 +1,13 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const Error = error{Malformed};
+const Error = error{
+    Malformed,
+    InvalidVariant,
+    InvalidLength,
+    OutOfData,
+    Unspecified,
+};
 
 const Tag = enum {
     simple_string,
@@ -36,7 +42,7 @@ const Value = union(Tag) {
             .bulk_string => |value| {
                 return value;
             },
-            else => return error.Todo,
+            else => return Error.InvalidVariant,
         }
     }
     pub fn deinit(self: Self, allocator: Allocator) void {
@@ -128,7 +134,7 @@ pub const Parser = struct {
     fn parseBulkString(self: *Self) Error!?Value {
         const start = self.index;
         const len = std.fmt.parseInt(usize, try self.advanceSection(), 10) catch {
-            return Error.Malformed;
+            return Error.InvalidLength;
         };
 
         if (self.index + len + 2 > self.data.len or self.data[self.index + len] != '\r' or self.data[self.index + len + 1] != '\n') {
@@ -151,19 +157,21 @@ pub const Parser = struct {
         defer list.deinit();
 
         const len = std.fmt.parseInt(usize, try self.advanceSection(), 10) catch {
-            return Error.Malformed;
+            return Error.InvalidLength;
         };
 
         for (0..len) |_| {
             if (try self.parseValue()) |resp| {
                 list.append(resp) catch {
-                    return Error.Malformed;
+                    return Error.Unspecified;
                 };
+            } else {
+                return Error.OutOfData;
             }
         }
 
         const data = list.toOwnedSlice() catch {
-            return Error.Malformed;
+            return Error.Unspecified;
         };
 
         return Value{ .array = Array{
