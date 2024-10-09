@@ -56,7 +56,6 @@ fn handleConnection(conn: net.Server.Connection, allocator: Allocator) !void {
                 },
             }
         }
-        _ = try conn.stream.write("+PONG\r\n");
     }
 
     conn.stream.close();
