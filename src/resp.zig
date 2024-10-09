@@ -42,6 +42,10 @@ const Value = union(Tag) {
     pub fn deinit(self: Self, allocator: Allocator) void {
         switch (self) {
             .array => |value| {
+                for (value.data) |item| {
+                    item.deinit(allocator);
+                }
+
                 allocator.free(value.data);
             },
             else => {},
@@ -229,6 +233,38 @@ test "parser parses arrays" {
         }
     } else {
         try std.testing.expect(false);
+    }
+}
+
+test "parser parses nested arrays" {
+    var parser = Parser.init("*2\r\n*1\r\n+data\r\n+atad\r\n", std.testing.allocator);
+
+    if (try parser.next()) |result| {
+        defer result.deinit(std.testing.allocator);
+
+        switch (result) {
+            .array => |value| {
+                switch (value.data[0]) {
+                    .array => |value_inner| {
+                        switch (value_inner.data[0]) {
+                            .simple_string => |str| {
+                                try std.testing.expectEqualStrings("data", str.data);
+                            },
+                            else => unreachable,
+                        }
+                    },
+                    else => unreachable,
+                }
+
+                switch (value.data[1]) {
+                    .simple_string => |str| {
+                        try std.testing.expectEqualStrings("atad", str.data);
+                    },
+                    else => unreachable,
+                }
+            },
+            else => unreachable,
+        }
     }
 }
 
