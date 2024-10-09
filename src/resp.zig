@@ -45,6 +45,14 @@ const Value = union(Tag) {
             else => return Error.InvalidVariant,
         }
     }
+    pub fn unwrapArray(self: Self) !Array {
+        switch (self) {
+            .array => |value| {
+                return value;
+            },
+            else => return Error.InvalidVariant,
+        }
+    }
     pub fn deinit(self: Self, allocator: Allocator) void {
         switch (self) {
             .array => |value| {

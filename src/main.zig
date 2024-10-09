@@ -29,31 +29,24 @@ fn handleConnection(conn: net.Server.Connection, allocator: Allocator) !void {
         if (try parser.next()) |data| {
             defer data.deinit(allocator);
 
-            switch (data) {
-                .array => |input| {
-                    if (input.data.len < 1) {
-                        return error.MissingCommand;
-                    }
+            const args = (try data.unwrapArray()).data;
 
-                    const commandBulk = try input.data[0].unwrapBulkString();
-                    const commandLower = try std.ascii.allocLowerString(allocator, commandBulk.data);
-                    defer allocator.free(commandLower);
+            if (args.len < 1) {
+                return error.MissingCommand;
+            }
 
-                    if (std.mem.eql(u8, "ping", commandLower)) {
-                        _ = try conn.stream.write("+PONG\r\n");
-                    } else if (std.mem.eql(u8, "echo", commandLower)) {
-                        if (input.data.len < 2) {
-                            return error.MissingArgument;
-                        }
+            const command = (try args[0].unwrapBulkString()).data;
 
-                        const paramBulk = try input.data[1].unwrapBulkString();
+            if (std.ascii.eqlIgnoreCase("ping", command)) {
+                _ = try conn.stream.write("+PONG\r\n");
+            } else if (std.ascii.eqlIgnoreCase("echo", command)) {
+                if (args.len < 2) {
+                    return error.MissingArgument;
+                }
 
-                        _ = try conn.stream.write(paramBulk.raw);
-                    }
-                },
-                else => {
-                    return error.InvalidRequest;
-                },
+                const paramRaw = (try args[1].unwrapBulkString()).raw;
+
+                _ = try conn.stream.write(paramRaw);
             }
         }
     }
