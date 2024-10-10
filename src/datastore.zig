@@ -20,8 +20,8 @@ pub const ThreadSafeHashMap = struct {
         var iterator = self.map.iterator();
 
         while (iterator.next()) |entry| {
-            self.allocator.destroy(entry.key_ptr);
-            self.allocator.destroy(entry.value_ptr);
+            self.allocator.free(entry.key_ptr.*);
+            self.allocator.free(entry.value_ptr.*);
         }
 
         self.map.deinit();
@@ -47,3 +47,11 @@ pub const ThreadSafeHashMap = struct {
         }
     }
 };
+
+test "hash map doesn't leak when setting the same key" {
+    var map = ThreadSafeHashMap.init(std.testing.allocator);
+    defer map.deinit();
+
+    try map.set("key", "value");
+    try map.set("key", "value2");
+}
