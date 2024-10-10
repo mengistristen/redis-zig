@@ -2,12 +2,21 @@ const std = @import("std");
 const net = std.net;
 
 const resp = @import("resp.zig");
+const datastore = @import("datastore.zig");
 
 const Allocator = std.mem.Allocator;
 
 const buff_size: usize = 1024;
 
-fn handleCommand(conn: net.Server.Connection, value: resp.Value) !void {
+fn get(comptime T: type, store: *T, key: []const u8) ?[]u8 {
+    return store.get(key);
+}
+
+fn set(comptime T: type, store: *T, key: []const u8, value: []const u8) !void {
+    try store.set(key, value);
+}
+
+fn handleCommand(comptime T: type, conn: net.Server.Connection, allocator: Allocator, value: resp.Value, store: *T) !void {
     const args = (try value.unwrapArray()).data;
 
     if (args.len < 1) {
@@ -26,10 +35,38 @@ fn handleCommand(conn: net.Server.Connection, value: resp.Value) !void {
         const paramRaw = (try args[1].unwrapBulkString()).raw;
 
         _ = try conn.stream.write(paramRaw);
+    } else if (std.ascii.eqlIgnoreCase("get", command)) {
+        if (args.len < 2) {
+            return error.MissingArgument;
+        }
+
+        const key = (try args[1].unwrapBulkString()).data;
+
+        if (get(T, store, key)) |data| {
+            const formatted = try std.fmt.allocPrint(allocator, "${d}\r\n{s}\r\n", .{ data.len, data });
+            defer allocator.free(formatted);
+
+            _ = try conn.stream.write(formatted);
+        } else {
+            _ = try conn.stream.write("$-1\r\n");
+        }
+    } else if (std.ascii.eqlIgnoreCase("set", command)) {
+        if (args.len < 3) {
+            return error.MissingArgument;
+        }
+
+        const k = (try args[1].unwrapBulkString()).data;
+        const v = (try args[2].unwrapBulkString()).data;
+
+        if (set(T, store, k, v)) |_| {
+            _ = try conn.stream.write("+OK\r\n");
+        } else |_| {
+            _ = try conn.stream.write("-error setting value\r\n");
+        }
     }
 }
 
-fn handleConnection(conn: net.Server.Connection, allocator: Allocator) !void {
+fn handleConnection(conn: net.Server.Connection, allocator: Allocator, store: *datastore.ThreadSafeHashMap) !void {
     defer conn.stream.close();
 
     const reader = conn.stream.reader();
@@ -53,7 +90,7 @@ fn handleConnection(conn: net.Server.Connection, allocator: Allocator) !void {
         if (try parser.next()) |data| {
             defer data.deinit(allocator);
 
-            handleCommand(conn, data) catch {
+            handleCommand(datastore.ThreadSafeHashMap, conn, allocator, data, store) catch {
                 _ = try conn.stream.write("-failed to process command\r\n");
             };
         }
@@ -67,6 +104,9 @@ pub fn main() !void {
 
     const allocator = gpa.allocator();
 
+    var store = datastore.ThreadSafeHashMap.init(allocator);
+    defer store.deinit();
+
     const address = try net.Address.resolveIp("127.0.0.1", 6379);
     var listener = try address.listen(.{
         .reuse_address = true,
@@ -78,7 +118,7 @@ pub fn main() !void {
 
         try stdout.print("accepted new connection\n", .{});
 
-        const thread = try std.Thread.spawn(.{}, handleConnection, .{ connection, allocator });
+        const thread = try std.Thread.spawn(.{}, handleConnection, .{ connection, allocator, &store });
 
         thread.detach();
     }
