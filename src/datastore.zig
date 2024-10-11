@@ -38,17 +38,37 @@ pub const ThreadSafeHashMap = struct {
         self.mutex.lock();
         defer self.mutex.unlock();
 
-        const owned_key = try self.allocator.dupe(u8, key);
-        const owned_value = try self.allocator.dupe(u8, value);
-
-        if (try self.map.fetchPut(owned_key, owned_value)) |kv| {
+        if (self.map.fetchRemove(key)) |kv| {
             self.allocator.free(kv.key);
             self.allocator.free(kv.value);
         }
+
+        const owned_key = try self.allocator.dupe(u8, key);
+        const owned_value = try self.allocator.dupe(u8, value);
+        errdefer self.allocator.free(owned_key);
+        errdefer self.allocator.free(owned_value);
+
+        try self.map.put(owned_key, owned_value);
     }
 };
 
-test "hash map doesn't leak when setting the same key" {
+test "hash map can store multiple values" {
+    var map = ThreadSafeHashMap.init(std.testing.allocator);
+    defer map.deinit();
+
+    try map.set("key1", "value1");
+    try map.set("key2", "value2");
+
+    if (map.get("key1")) |value| {
+        try std.testing.expectEqualStrings("value1", value);
+    } else unreachable;
+
+    if (map.get("key2")) |value| {
+        try std.testing.expectEqualStrings("value2", value);
+    } else unreachable;
+}
+
+test "hash map can override keys" {
     var map = ThreadSafeHashMap.init(std.testing.allocator);
     defer map.deinit();
 
