@@ -85,7 +85,7 @@ fn handleConnection(conn: net.Server.Connection, allocator: Allocator, store: *d
             break;
         }
 
-        var parser = resp.Parser.init(&buffer, allocator);
+        var parser = resp.Parser.init(buffer[0..bytes_read], allocator);
 
         if (try parser.next()) |data| {
             defer data.deinit(allocator);
