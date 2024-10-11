@@ -77,7 +77,7 @@ pub fn handle(comptime T: type, conn: net.Server.Connection, allocator: Allocato
 
             if (std.ascii.eqlIgnoreCase("dir", key)) {
                 if (configuration.dir) |dir| {
-                    const formatted = try std.fmt.allocPrint(allocator, "${d}\r\n{s}\r\n", .{ dir.len, dir });
+                    const formatted = try std.fmt.allocPrint(allocator, "*2\r\n$3\r\ndir\r\n${d}\r\n{s}\r\n", .{ dir.len, dir });
                     defer allocator.free(formatted);
 
                     _ = try conn.stream.write(formatted);
@@ -86,7 +86,7 @@ pub fn handle(comptime T: type, conn: net.Server.Connection, allocator: Allocato
                 }
             } else if (std.ascii.eqlIgnoreCase("dbfilename", key)) {
                 if (configuration.dbfilename) |dbfilename| {
-                    const formatted = try std.fmt.allocPrint(allocator, "${d}\r\n{s}\r\n", .{ dbfilename.len, dbfilename });
+                    const formatted = try std.fmt.allocPrint(allocator, "*2\r\n$10\r\ndbfilename\r\n${d}\r\n{s}\r\n", .{ dbfilename.len, dbfilename });
                     defer allocator.free(formatted);
 
                     _ = try conn.stream.write(formatted);
