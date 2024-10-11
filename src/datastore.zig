@@ -18,13 +18,13 @@ pub const ThreadSafeHashMap = struct {
     const Self = @This();
 
     allocator: Allocator,
-    mutex: std.Thread.Mutex,
+    rw_lock: std.Thread.RwLock,
     map: std.StringHashMap(*ExpiringValue),
 
     pub fn init(allocator: Allocator) Self {
         return Self{
             .allocator = allocator,
-            .mutex = std.Thread.Mutex{},
+            .rw_lock = std.Thread.RwLock{},
             .map = std.StringHashMap(*ExpiringValue).init(allocator),
         };
     }
@@ -43,8 +43,8 @@ pub const ThreadSafeHashMap = struct {
     }
 
     pub fn get(self: *Self, key: []const u8) ?[]u8 {
-        self.mutex.lock();
-        defer self.mutex.unlock();
+        self.rw_lock.lockShared();
+        defer self.rw_lock.unlockShared();
 
         if (self.map.get(key)) |data| {
             if (data.expiration) |timestamp| {
@@ -60,8 +60,8 @@ pub const ThreadSafeHashMap = struct {
     }
 
     pub fn set(self: *Self, key: []const u8, value: []const u8, expiry: ?i64) !void {
-        self.mutex.lock();
-        defer self.mutex.unlock();
+        self.rw_lock.lock();
+        defer self.rw_lock.unlock();
 
         if (self.map.fetchRemove(key)) |kv| {
             self.allocator.free(kv.key);
