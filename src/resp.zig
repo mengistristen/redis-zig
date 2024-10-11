@@ -15,17 +15,17 @@ const Tag = enum {
     array,
 };
 
-const SimpleString = struct {
+pub const SimpleString = struct {
     data: []const u8,
     raw: []const u8,
 };
 
-const BulkString = struct {
+pub const BulkString = struct {
     data: []const u8,
     raw: []const u8,
 };
 
-const Array = struct {
+pub const Array = struct {
     data: []Value,
     raw: []const u8,
 };
@@ -64,6 +64,23 @@ pub const Value = union(Tag) {
             },
             else => {},
         }
+    }
+};
+
+pub const ValueIterator = struct {
+    values: []Value,
+    index: usize = 0,
+
+    pub fn next(self: *ValueIterator) ?Value {
+        if (self.index >= self.values.len) {
+            return null;
+        }
+
+        const result = self.values[self.index];
+
+        self.index += 1;
+
+        return result;
     }
 };
 

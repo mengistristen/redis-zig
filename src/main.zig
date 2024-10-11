@@ -16,31 +16,38 @@ fn set(comptime T: type, store: *T, key: []const u8, value: []const u8, expiry: 
     try store.set(key, value, expiry);
 }
 
+fn expectArg(iter: *resp.ValueIterator) !resp.BulkString {
+    if (iter.next()) |value| {
+        return value.unwrapBulkString();
+    } else {
+        return error.MissingArgument;
+    }
+}
+
+fn acceptArg(iter: *resp.ValueIterator) !?resp.BulkString {
+    if (iter.next()) |value| {
+        return try value.unwrapBulkString();
+    } else {
+        return null;
+    }
+}
+
 fn handleCommand(comptime T: type, conn: net.Server.Connection, allocator: Allocator, value: resp.Value, store: *T) !void {
     const args = (try value.unwrapArray()).data;
+    var iter = resp.ValueIterator{
+        .values = args,
+    };
 
-    if (args.len < 1) {
-        return error.MissingCommand;
-    }
-
-    const command = (try args[0].unwrapBulkString()).data;
+    const command = (try expectArg(&iter)).data;
 
     if (std.ascii.eqlIgnoreCase("ping", command)) {
         _ = try conn.stream.write("+PONG\r\n");
     } else if (std.ascii.eqlIgnoreCase("echo", command)) {
-        if (args.len < 2) {
-            return error.MissingArgument;
-        }
-
-        const paramRaw = (try args[1].unwrapBulkString()).raw;
+        const paramRaw = (try expectArg(&iter)).raw;
 
         _ = try conn.stream.write(paramRaw);
     } else if (std.ascii.eqlIgnoreCase("get", command)) {
-        if (args.len < 2) {
-            return error.MissingArgument;
-        }
-
-        const key = (try args[1].unwrapBulkString()).data;
+        const key = (try expectArg(&iter)).data;
 
         if (get(T, store, key)) |data| {
             const formatted = try std.fmt.allocPrint(allocator, "${d}\r\n{s}\r\n", .{ data.len, data });
@@ -51,14 +58,22 @@ fn handleCommand(comptime T: type, conn: net.Server.Connection, allocator: Alloc
             _ = try conn.stream.write("$-1\r\n");
         }
     } else if (std.ascii.eqlIgnoreCase("set", command)) {
-        if (args.len < 3) {
-            return error.MissingArgument;
+        const k = (try expectArg(&iter)).data;
+        const v = (try expectArg(&iter)).data;
+
+        var expiry: ?i64 = null;
+
+        if (try acceptArg(&iter)) |arg| {
+            if (std.ascii.eqlIgnoreCase("px", arg.data)) {
+                const amount_str = (try expectArg(&iter)).data;
+
+                const amount = try std.fmt.parseInt(i64, amount_str, 10);
+
+                expiry = amount;
+            }
         }
 
-        const k = (try args[1].unwrapBulkString()).data;
-        const v = (try args[2].unwrapBulkString()).data;
-
-        if (set(T, store, k, v, null)) |_| {
+        if (set(T, store, k, v, expiry)) |_| {
             _ = try conn.stream.write("+OK\r\n");
         } else |_| {
             _ = try conn.stream.write("-error setting value\r\n");
