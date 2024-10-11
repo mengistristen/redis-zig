@@ -1,6 +1,14 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
+pub fn get(comptime T: type, store: *T, key: []const u8) ?[]u8 {
+    return store.get(key);
+}
+
+pub fn set(comptime T: type, store: *T, key: []const u8, value: []const u8, expiry: ?i64) !void {
+    try store.set(key, value, expiry);
+}
+
 const ExpiringValue = struct {
     value: []u8,
     expiration: ?i64,

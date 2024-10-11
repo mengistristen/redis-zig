@@ -8,14 +8,6 @@ const Allocator = std.mem.Allocator;
 
 const buff_size: usize = 1024;
 
-fn get(comptime T: type, store: *T, key: []const u8) ?[]u8 {
-    return store.get(key);
-}
-
-fn set(comptime T: type, store: *T, key: []const u8, value: []const u8, expiry: ?i64) !void {
-    try store.set(key, value, expiry);
-}
-
 fn expectArg(iter: *resp.ValueIterator) !resp.BulkString {
     if (iter.next()) |value| {
         return value.unwrapBulkString();
@@ -49,7 +41,7 @@ fn handleCommand(comptime T: type, conn: net.Server.Connection, allocator: Alloc
     } else if (std.ascii.eqlIgnoreCase("get", command)) {
         const key = (try expectArg(&iter)).data;
 
-        if (get(T, store, key)) |data| {
+        if (datastore.get(T, store, key)) |data| {
             const formatted = try std.fmt.allocPrint(allocator, "${d}\r\n{s}\r\n", .{ data.len, data });
             defer allocator.free(formatted);
 
@@ -73,7 +65,7 @@ fn handleCommand(comptime T: type, conn: net.Server.Connection, allocator: Alloc
             }
         }
 
-        if (set(T, store, k, v, expiry)) |_| {
+        if (datastore.set(T, store, k, v, expiry)) |_| {
             _ = try conn.stream.write("+OK\r\n");
         } else |_| {
             _ = try conn.stream.write("-error setting value\r\n");
