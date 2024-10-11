@@ -1,15 +1,16 @@
 const std = @import("std");
 const net = std.net;
 
-const resp = @import("resp.zig");
-const datastore = @import("datastore.zig");
 const command = @import("command.zig");
+const config = @import("config.zig");
+const datastore = @import("datastore.zig");
+const resp = @import("resp.zig");
 
 const Allocator = std.mem.Allocator;
 
 const buff_size: usize = 1024;
 
-fn handleConnection(conn: net.Server.Connection, allocator: Allocator, store: *datastore.ThreadSafeHashMap) !void {
+fn handleConnection(conn: net.Server.Connection, allocator: Allocator, configuration: config.Config, store: *datastore.ThreadSafeHashMap) !void {
     defer conn.stream.close();
 
     const reader = conn.stream.reader();
@@ -33,7 +34,7 @@ fn handleConnection(conn: net.Server.Connection, allocator: Allocator, store: *d
         if (try parser.next()) |data| {
             defer data.deinit(allocator);
 
-            command.handle(datastore.ThreadSafeHashMap, conn, allocator, data, store) catch {
+            command.handle(datastore.ThreadSafeHashMap, conn, allocator, configuration, data, store) catch {
                 _ = try conn.stream.write("-failed to process command\r\n");
             };
         }
@@ -56,12 +57,15 @@ pub fn main() !void {
     });
     defer listener.deinit();
 
+    const configuration = try config.process(allocator);
+    defer configuration.deinit(allocator);
+
     while (true) {
         const connection = try listener.accept();
 
         try stdout.print("accepted new connection\n", .{});
 
-        const thread = try std.Thread.spawn(.{}, handleConnection, .{ connection, allocator, &store });
+        const thread = try std.Thread.spawn(.{}, handleConnection, .{ connection, allocator, configuration, &store });
 
         thread.detach();
     }

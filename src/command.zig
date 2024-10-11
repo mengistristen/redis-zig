@@ -3,8 +3,9 @@ const net = std.net;
 
 const Allocator = std.mem.Allocator;
 
-const resp = @import("resp.zig");
+const config = @import("config.zig");
 const datastore = @import("datastore.zig");
+const resp = @import("resp.zig");
 
 fn expectArg(iter: *resp.ValueIterator) !resp.BulkString {
     if (iter.next()) |value| {
@@ -22,7 +23,7 @@ fn acceptArg(iter: *resp.ValueIterator) !?resp.BulkString {
     }
 }
 
-pub fn handle(comptime T: type, conn: net.Server.Connection, allocator: Allocator, value: resp.Value, store: *T) !void {
+pub fn handle(comptime T: type, conn: net.Server.Connection, allocator: Allocator, configuration: config.Config, value: resp.Value, store: *T) !void {
     const args = (try value.unwrapArray()).data;
     var iter = resp.ValueIterator{
         .values = args,
@@ -68,5 +69,35 @@ pub fn handle(comptime T: type, conn: net.Server.Connection, allocator: Allocato
         } else |_| {
             _ = try conn.stream.write("-error setting value\r\n");
         }
+    } else if (std.ascii.eqlIgnoreCase("config", command)) {
+        const subcommand = (try expectArg(&iter)).data;
+
+        if (std.ascii.eqlIgnoreCase("get", subcommand)) {
+            const key = (try expectArg(&iter)).data;
+
+            if (std.ascii.eqlIgnoreCase("dir", key)) {
+                if (configuration.dir) |dir| {
+                    const formatted = try std.fmt.allocPrint(allocator, "${d}\r\n{s}\r\n", .{ dir.len, dir });
+                    defer allocator.free(formatted);
+
+                    _ = try conn.stream.write(formatted);
+                } else {
+                    _ = try conn.stream.write("$-1\r\n");
+                }
+            } else if (std.ascii.eqlIgnoreCase("dbfilename", key)) {
+                if (configuration.dbfilename) |dbfilename| {
+                    const formatted = try std.fmt.allocPrint(allocator, "${d}\r\n{s}\r\n", .{ dbfilename.len, dbfilename });
+                    defer allocator.free(formatted);
+
+                    _ = try conn.stream.write(formatted);
+                } else {
+                    _ = try conn.stream.write("$-1\r\n");
+                }
+            }
+        } else {
+            return error.UnknownSubcommand;
+        }
+    } else {
+        return error.UnknownCommand;
     }
 }
