@@ -10,7 +10,12 @@ const Allocator = std.mem.Allocator;
 
 const buff_size: usize = 1024;
 
-fn handleConnection(conn: net.Server.Connection, allocator: Allocator, configuration: config.Config, store: *datastore.ThreadSafeHashMap) !void {
+fn handleConnection(
+    conn: net.Server.Connection,
+    allocator: Allocator,
+    configuration: config.Config,
+    store: *datastore.ThreadSafeHashMap,
+) !void {
     defer conn.stream.close();
 
     const reader = conn.stream.reader();
@@ -34,7 +39,14 @@ fn handleConnection(conn: net.Server.Connection, allocator: Allocator, configura
         if (try parser.next()) |data| {
             defer data.deinit(allocator);
 
-            command.handle(datastore.ThreadSafeHashMap, conn, allocator, configuration, data, store) catch {
+            command.handle(
+                datastore.ThreadSafeHashMap,
+                conn,
+                allocator,
+                configuration,
+                data,
+                store,
+            ) catch {
                 _ = try conn.stream.write("-failed to process command\r\n");
             };
         }
@@ -65,7 +77,12 @@ pub fn main() !void {
 
         try stdout.print("accepted new connection\n", .{});
 
-        const thread = try std.Thread.spawn(.{}, handleConnection, .{ connection, allocator, configuration, &store });
+        const thread = try std.Thread.spawn(.{}, handleConnection, .{
+            connection,
+            allocator,
+            configuration,
+            &store,
+        });
 
         thread.detach();
     }

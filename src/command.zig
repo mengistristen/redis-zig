@@ -23,7 +23,14 @@ fn acceptArg(iter: *resp.ValueIterator) !?resp.BulkString {
     }
 }
 
-pub fn handle(comptime T: type, conn: net.Server.Connection, allocator: Allocator, configuration: config.Config, value: resp.Value, store: *T) !void {
+pub fn handle(
+    comptime T: type,
+    conn: net.Server.Connection,
+    allocator: Allocator,
+    configuration: config.Config,
+    value: resp.Value,
+    store: *T,
+) !void {
     const args = (try value.unwrapArray()).data;
     var iter = resp.ValueIterator{
         .values = args,
