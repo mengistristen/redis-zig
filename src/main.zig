@@ -11,10 +11,11 @@ const Allocator = std.mem.Allocator;
 const buff_size: usize = 1024;
 
 fn handleConnection(
+    comptime T: type,
     conn: net.Server.Connection,
     allocator: Allocator,
     configuration: config.Config,
-    store: *datastore.ThreadSafeHashMap,
+    store: *T,
 ) !void {
     defer conn.stream.close();
 
@@ -40,7 +41,7 @@ fn handleConnection(
             defer data.deinit(allocator);
 
             command.handle(
-                datastore.ThreadSafeHashMap,
+                datastore.InMemoryDataStore,
                 conn,
                 allocator,
                 configuration,
@@ -60,7 +61,7 @@ pub fn main() !void {
 
     const allocator = gpa.allocator();
 
-    var store = datastore.ThreadSafeHashMap.init(allocator);
+    var store = datastore.InMemoryDataStore.init(allocator);
     defer store.deinit();
 
     const address = try net.Address.resolveIp("127.0.0.1", 6379);
@@ -78,6 +79,7 @@ pub fn main() !void {
         try stdout.print("accepted new connection\n", .{});
 
         const thread = try std.Thread.spawn(.{}, handleConnection, .{
+            @TypeOf(store),
             connection,
             allocator,
             configuration,

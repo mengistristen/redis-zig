@@ -14,7 +14,7 @@ const ExpiringValue = struct {
     expiration: ?i64,
 };
 
-pub const ThreadSafeHashMap = struct {
+pub const InMemoryDataStore = struct {
     const Self = @This();
 
     allocator: Allocator,
@@ -91,7 +91,7 @@ pub const ThreadSafeHashMap = struct {
 };
 
 test "hash map can store multiple values" {
-    var map = ThreadSafeHashMap.init(std.testing.allocator);
+    var map = InMemoryDataStore.init(std.testing.allocator);
     defer map.deinit();
 
     try map.set("key1", "value1", null);
@@ -107,7 +107,7 @@ test "hash map can store multiple values" {
 }
 
 test "hash map can override keys" {
-    var map = ThreadSafeHashMap.init(std.testing.allocator);
+    var map = InMemoryDataStore.init(std.testing.allocator);
     defer map.deinit();
 
     try map.set("key", "value", null);
@@ -115,7 +115,7 @@ test "hash map can override keys" {
 }
 
 test "hash map keys can expire" {
-    var map = ThreadSafeHashMap.init(std.testing.allocator);
+    var map = InMemoryDataStore.init(std.testing.allocator);
     defer map.deinit();
 
     try map.set("key", "value", 1000);
