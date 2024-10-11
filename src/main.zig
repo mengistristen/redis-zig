@@ -12,8 +12,8 @@ fn get(comptime T: type, store: *T, key: []const u8) ?[]u8 {
     return store.get(key);
 }
 
-fn set(comptime T: type, store: *T, key: []const u8, value: []const u8) !void {
-    try store.set(key, value);
+fn set(comptime T: type, store: *T, key: []const u8, value: []const u8, expiry: ?i64) !void {
+    try store.set(key, value, expiry);
 }
 
 fn handleCommand(comptime T: type, conn: net.Server.Connection, allocator: Allocator, value: resp.Value, store: *T) !void {
@@ -58,7 +58,7 @@ fn handleCommand(comptime T: type, conn: net.Server.Connection, allocator: Alloc
         const k = (try args[1].unwrapBulkString()).data;
         const v = (try args[2].unwrapBulkString()).data;
 
-        if (set(T, store, k, v)) |_| {
+        if (set(T, store, k, v, null)) |_| {
             _ = try conn.stream.write("+OK\r\n");
         } else |_| {
             _ = try conn.stream.write("-error setting value\r\n");
