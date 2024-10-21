@@ -45,6 +45,8 @@ pub fn handle(
         try handleSet(T, ctx, &iter);
     } else if (std.ascii.eqlIgnoreCase("config", command)) {
         try handleConfig(T, ctx, &iter);
+    } else if (std.ascii.eqlIgnoreCase("info", command)) {
+        try handleInfo(T, ctx, &iter);
     } else {
         return error.UnknownCommand;
     }
@@ -119,5 +121,15 @@ fn handleConfig(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
         }
     } else {
         return error.UnknownSubcommand;
+    }
+}
+
+fn handleInfo(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
+    const section = (try expectArg(iter)).data;
+
+    if (std.ascii.eqlIgnoreCase("replication", section)) {
+        _ = try ctx.connection.stream.write("$11\r\nrole:master\r\n");
+    } else {
+        return error.UnknownSection;
     }
 }
