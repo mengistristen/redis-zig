@@ -38,70 +38,86 @@ pub fn handle(
     if (std.ascii.eqlIgnoreCase("ping", command)) {
         _ = try ctx.connection.stream.write("+PONG\r\n");
     } else if (std.ascii.eqlIgnoreCase("echo", command)) {
-        const paramRaw = (try expectArg(&iter)).raw;
-
-        _ = try ctx.connection.stream.write(paramRaw);
+        try handleEcho(T, ctx, &iter);
     } else if (std.ascii.eqlIgnoreCase("get", command)) {
-        const key = (try expectArg(&iter)).data;
-
-        if (datastore.get(@TypeOf(ctx.datastore.*), ctx.datastore, key)) |data| {
-            const formatted = try std.fmt.allocPrint(ctx.allocator, "${d}\r\n{s}\r\n", .{ data.len, data });
-            defer ctx.allocator.free(formatted);
-
-            _ = try ctx.connection.stream.write(formatted);
-        } else {
-            _ = try ctx.connection.stream.write("$-1\r\n");
-        }
+        try handleGet(T, ctx, &iter);
     } else if (std.ascii.eqlIgnoreCase("set", command)) {
-        const k = (try expectArg(&iter)).data;
-        const v = (try expectArg(&iter)).data;
-
-        var expiry: ?i64 = null;
-
-        if (try acceptArg(&iter)) |arg| {
-            if (std.ascii.eqlIgnoreCase("px", arg.data)) {
-                const amount_str = (try expectArg(&iter)).data;
-
-                const amount = try std.fmt.parseInt(i64, amount_str, 10);
-
-                expiry = amount;
-            }
-        }
-
-        if (datastore.set(@TypeOf(ctx.datastore.*), ctx.datastore, k, v, expiry)) |_| {
-            _ = try ctx.connection.stream.write("+OK\r\n");
-        } else |_| {
-            _ = try ctx.connection.stream.write("-error setting value\r\n");
-        }
+        try handleSet(T, ctx, &iter);
     } else if (std.ascii.eqlIgnoreCase("config", command)) {
-        const subcommand = (try expectArg(&iter)).data;
-
-        if (std.ascii.eqlIgnoreCase("get", subcommand)) {
-            const key = (try expectArg(&iter)).data;
-
-            if (std.ascii.eqlIgnoreCase("dir", key)) {
-                if (ctx.configuration.dir) |dir| {
-                    const formatted = try std.fmt.allocPrint(ctx.allocator, "*2\r\n$3\r\ndir\r\n${d}\r\n{s}\r\n", .{ dir.len, dir });
-                    defer ctx.allocator.free(formatted);
-
-                    _ = try ctx.connection.stream.write(formatted);
-                } else {
-                    _ = try ctx.connection.stream.write("$-1\r\n");
-                }
-            } else if (std.ascii.eqlIgnoreCase("dbfilename", key)) {
-                if (ctx.configuration.dbfilename) |dbfilename| {
-                    const formatted = try std.fmt.allocPrint(ctx.allocator, "*2\r\n$10\r\ndbfilename\r\n${d}\r\n{s}\r\n", .{ dbfilename.len, dbfilename });
-                    defer ctx.allocator.free(formatted);
-
-                    _ = try ctx.connection.stream.write(formatted);
-                } else {
-                    _ = try ctx.connection.stream.write("$-1\r\n");
-                }
-            }
-        } else {
-            return error.UnknownSubcommand;
-        }
+        try handleConfig(T, ctx, &iter);
     } else {
         return error.UnknownCommand;
+    }
+}
+
+fn handleEcho(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
+    const paramRaw = (try expectArg(&iter)).raw;
+
+    _ = try ctx.connection.stream.write(paramRaw);
+}
+
+fn handleGet(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
+    const key = (try expectArg(&iter)).data;
+
+    if (datastore.get(@TypeOf(ctx.datastore.*), ctx.datastore, key)) |data| {
+        const formatted = try std.fmt.allocPrint(ctx.allocator, "${d}\r\n{s}\r\n", .{ data.len, data });
+        defer ctx.allocator.free(formatted);
+
+        _ = try ctx.connection.stream.write(formatted);
+    } else {
+        _ = try ctx.connection.stream.write("$-1\r\n");
+    }
+}
+
+fn handleSet(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
+    const k = (try expectArg(&iter)).data;
+    const v = (try expectArg(&iter)).data;
+
+    var expiry: ?i64 = null;
+
+    if (try acceptArg(&iter)) |arg| {
+        if (std.ascii.eqlIgnoreCase("px", arg.data)) {
+            const amount_str = (try expectArg(&iter)).data;
+
+            const amount = try std.fmt.parseInt(i64, amount_str, 10);
+
+            expiry = amount;
+        }
+    }
+
+    if (datastore.set(@TypeOf(ctx.datastore.*), ctx.datastore, k, v, expiry)) |_| {
+        _ = try ctx.connection.stream.write("+OK\r\n");
+    } else |_| {
+        _ = try ctx.connection.stream.write("-error setting value\r\n");
+    }
+}
+
+fn handleConfig(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
+    const subcommand = (try expectArg(&iter)).data;
+
+    if (std.ascii.eqlIgnoreCase("get", subcommand)) {
+        const key = (try expectArg(&iter)).data;
+
+        if (std.ascii.eqlIgnoreCase("dir", key)) {
+            if (ctx.configuration.dir) |dir| {
+                const formatted = try std.fmt.allocPrint(ctx.allocator, "*2\r\n$3\r\ndir\r\n${d}\r\n{s}\r\n", .{ dir.len, dir });
+                defer ctx.allocator.free(formatted);
+
+                _ = try ctx.connection.stream.write(formatted);
+            } else {
+                _ = try ctx.connection.stream.write("$-1\r\n");
+            }
+        } else if (std.ascii.eqlIgnoreCase("dbfilename", key)) {
+            if (ctx.configuration.dbfilename) |dbfilename| {
+                const formatted = try std.fmt.allocPrint(ctx.allocator, "*2\r\n$10\r\ndbfilename\r\n${d}\r\n{s}\r\n", .{ dbfilename.len, dbfilename });
+                defer ctx.allocator.free(formatted);
+
+                _ = try ctx.connection.stream.write(formatted);
+            } else {
+                _ = try ctx.connection.stream.write("$-1\r\n");
+            }
+        }
+    } else {
+        return error.UnknownSubcommand;
     }
 }
