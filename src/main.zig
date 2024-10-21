@@ -63,14 +63,20 @@ pub fn main() !void {
     var store = datastore.InMemoryDataStore.init(allocator);
     defer store.deinit();
 
-    const address = try net.Address.resolveIp("127.0.0.1", 6379);
+    const configuration = try config.process(allocator);
+    defer configuration.deinit(allocator);
+
+    var port: u16 = 6379;
+
+    if (configuration.port) |config_port| {
+        port = config_port;
+    }
+
+    const address = try net.Address.resolveIp("127.0.0.1", port);
     var listener = try address.listen(.{
         .reuse_address = true,
     });
     defer listener.deinit();
-
-    const configuration = try config.process(allocator);
-    defer configuration.deinit(allocator);
 
     while (true) {
         const connection = try listener.accept();

@@ -7,6 +7,7 @@ pub const Config = struct {
 
     dir: ?[]const u8 = null,
     dbfilename: ?[]const u8 = null,
+    port: ?u16 = null,
 
     pub fn deinit(self: Self, allocator: Allocator) void {
         if (self.dir) |dir| {
@@ -42,6 +43,10 @@ pub fn process(allocator: Allocator) !Config {
             const dbfilename = try expectArg(&iter);
 
             config.dbfilename = try allocator.dupe(u8, dbfilename);
+        } else if (std.mem.eql(u8, "--port", arg)) {
+            const port_str = try expectArg(&iter);
+
+            config.port = try std.fmt.parseUnsigned(u16, port_str, 10);
         } else {
             return error.UnexpectedArgument;
         }
