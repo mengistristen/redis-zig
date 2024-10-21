@@ -10,16 +10,22 @@ const Allocator = std.mem.Allocator;
 
 const buff_size: usize = 1024;
 
+fn Context(comptime T: type) type {
+    return struct {
+        connection: net.Server.Connection,
+        allocator: Allocator,
+        configuration: config.Config,
+        datastore: *T,
+    };
+}
+
 fn handleConnection(
     comptime T: type,
-    conn: net.Server.Connection,
-    allocator: Allocator,
-    configuration: config.Config,
-    store: *T,
+    ctx: Context(T),
 ) !void {
-    defer conn.stream.close();
+    defer ctx.connection.stream.close();
 
-    const reader = conn.stream.reader();
+    const reader = ctx.connection.stream.reader();
     var buffer: [buff_size]u8 = undefined;
 
     while (true) {
@@ -35,20 +41,13 @@ fn handleConnection(
             break;
         }
 
-        var parser = resp.Parser.init(buffer[0..bytes_read], allocator);
+        var parser = resp.Parser.init(buffer[0..bytes_read], ctx.allocator);
 
         if (try parser.next()) |data| {
-            defer data.deinit(allocator);
+            defer data.deinit(ctx.allocator);
 
-            command.handle(
-                datastore.InMemoryDataStore,
-                conn,
-                allocator,
-                configuration,
-                data,
-                store,
-            ) catch {
-                _ = try conn.stream.write("-failed to process command\r\n");
+            command.handle(@TypeOf(ctx), ctx, data) catch {
+                _ = try ctx.connection.stream.write("-failed to process command\r\n");
             };
         }
     }
@@ -78,13 +77,12 @@ pub fn main() !void {
 
         try stdout.print("accepted new connection\n", .{});
 
-        const thread = try std.Thread.spawn(.{}, handleConnection, .{
-            @TypeOf(store),
-            connection,
-            allocator,
-            configuration,
-            &store,
-        });
+        const thread = try std.Thread.spawn(.{}, handleConnection, .{ @TypeOf(store), .{
+            .allocator = allocator,
+            .configuration = configuration,
+            .connection = connection,
+            .datastore = &store,
+        } });
 
         thread.detach();
     }
