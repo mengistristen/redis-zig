@@ -51,13 +51,13 @@ pub fn handle(
 }
 
 fn handleEcho(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
-    const paramRaw = (try expectArg(&iter)).raw;
+    const paramRaw = (try expectArg(iter)).raw;
 
     _ = try ctx.connection.stream.write(paramRaw);
 }
 
 fn handleGet(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
-    const key = (try expectArg(&iter)).data;
+    const key = (try expectArg(iter)).data;
 
     if (datastore.get(@TypeOf(ctx.datastore.*), ctx.datastore, key)) |data| {
         const formatted = try std.fmt.allocPrint(ctx.allocator, "${d}\r\n{s}\r\n", .{ data.len, data });
@@ -70,14 +70,14 @@ fn handleGet(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
 }
 
 fn handleSet(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
-    const k = (try expectArg(&iter)).data;
-    const v = (try expectArg(&iter)).data;
+    const k = (try expectArg(iter)).data;
+    const v = (try expectArg(iter)).data;
 
     var expiry: ?i64 = null;
 
-    if (try acceptArg(&iter)) |arg| {
+    if (try acceptArg(iter)) |arg| {
         if (std.ascii.eqlIgnoreCase("px", arg.data)) {
-            const amount_str = (try expectArg(&iter)).data;
+            const amount_str = (try expectArg(iter)).data;
 
             const amount = try std.fmt.parseInt(i64, amount_str, 10);
 
@@ -93,10 +93,10 @@ fn handleSet(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
 }
 
 fn handleConfig(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
-    const subcommand = (try expectArg(&iter)).data;
+    const subcommand = (try expectArg(iter)).data;
 
     if (std.ascii.eqlIgnoreCase("get", subcommand)) {
-        const key = (try expectArg(&iter)).data;
+        const key = (try expectArg(iter)).data;
 
         if (std.ascii.eqlIgnoreCase("dir", key)) {
             if (ctx.configuration.dir) |dir| {
