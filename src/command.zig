@@ -128,7 +128,11 @@ fn handleInfo(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
     const section = (try expectArg(iter)).data;
 
     if (std.ascii.eqlIgnoreCase("replication", section)) {
-        _ = try ctx.connection.stream.write("$11\r\nrole:master\r\n");
+        if (ctx.configuration.replicaof) |_| {
+            _ = try ctx.connection.stream.write("$10\r\nrole:slave\r\n");
+        } else {
+            _ = try ctx.connection.stream.write("$11\r\nrole:master\r\n");
+        }
     } else {
         return error.UnknownSection;
     }

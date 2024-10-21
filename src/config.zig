@@ -5,9 +5,10 @@ const Allocator = std.mem.Allocator;
 pub const Config = struct {
     const Self = @This();
 
-    dir: ?[]const u8 = null,
     dbfilename: ?[]const u8 = null,
+    dir: ?[]const u8 = null,
     port: ?u16 = null,
+    replicaof: ?[]const u8 = null,
 
     pub fn deinit(self: Self, allocator: Allocator) void {
         if (self.dir) |dir| {
@@ -16,6 +17,10 @@ pub const Config = struct {
 
         if (self.dbfilename) |dbfilename| {
             allocator.free(dbfilename);
+        }
+
+        if (self.replicaof) |replicaof| {
+            allocator.free(replicaof);
         }
     }
 };
@@ -47,6 +52,10 @@ pub fn process(allocator: Allocator) !Config {
             const port_str = try expectArg(&iter);
 
             config.port = try std.fmt.parseUnsigned(u16, port_str, 10);
+        } else if (std.mem.eql(u8, "--replicaof", arg)) {
+            const replicaof = try expectArg(&iter);
+
+            config.replicaof = try allocator.dupe(u8, replicaof);
         } else {
             return error.UnexpectedArgument;
         }
