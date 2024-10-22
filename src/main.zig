@@ -55,7 +55,10 @@ pub fn main() !void {
     var store = datastore.InMemoryDataStore.init(allocator);
     defer store.deinit();
 
-    const configuration = try config.process(@TypeOf(args), &args, allocator);
+    const configuration = config.process(@TypeOf(args), &args, allocator) catch {
+        config.printHelp();
+        std.process.exit(1);
+    };
     defer configuration.deinit(allocator);
 
     var port: u16 = 6379;

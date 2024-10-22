@@ -68,11 +68,21 @@ pub fn process(comptime T: type, iter: *T, allocator: Allocator) !Config {
 
             config.port = try std.fmt.parseUnsigned(u16, port_str, 10);
         } else {
+            std.debug.print("unexpected argument: {s}\n", .{arg});
+
             return error.UnexpectedArgument;
         }
     }
 
     return config;
+}
+
+pub fn printHelp() void {
+    std.debug.print("usage: redis-zig [OPTIONS]\n", .{});
+    std.debug.print("  --dir <directory>        sets the directory containing the RDB file\n", .{});
+    std.debug.print("  --dbfilename <filename>  sets the name of the RDB file\n", .{});
+    std.debug.print("  --replicaof <master>     starts as a replica of master\n", .{});
+    std.debug.print("  --port <port>            starts the server on port\n", .{});
 }
 
 const testing = struct {
