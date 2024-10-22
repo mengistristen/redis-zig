@@ -10,18 +10,8 @@ const Allocator = std.mem.Allocator;
 
 const buff_size: usize = 1024;
 
-fn Context(comptime T: type) type {
-    return struct {
-        connection: net.Server.Connection,
-        allocator: Allocator,
-        configuration: config.Config,
-        datastore: *T,
-    };
-}
-
 fn handleConnection(
-    comptime T: type,
-    ctx: Context(T),
+    ctx: anytype,
 ) !void {
     defer ctx.connection.stream.close();
 
@@ -46,7 +36,7 @@ fn handleConnection(
         if (try parser.next()) |data| {
             defer data.deinit(ctx.allocator);
 
-            command.handle(@TypeOf(ctx), ctx, data) catch {
+            command.handle(ctx, data) catch {
                 _ = try ctx.connection.stream.write("-failed to process command\r\n");
             };
         }
@@ -85,12 +75,12 @@ pub fn main() !void {
 
         try stdout.print("accepted new connection\n", .{});
 
-        const thread = try std.Thread.spawn(.{}, handleConnection, .{ @TypeOf(store), .{
+        const thread = try std.Thread.spawn(.{}, handleConnection, .{.{
             .allocator = allocator,
             .configuration = configuration,
             .connection = connection,
             .datastore = &store,
-        } });
+        }});
 
         thread.detach();
     }

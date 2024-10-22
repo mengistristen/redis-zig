@@ -24,8 +24,7 @@ fn acceptArg(iter: *resp.ValueIterator) !?resp.BulkString {
 }
 
 pub fn handle(
-    comptime T: type,
-    ctx: T,
+    ctx: anytype,
     value: resp.Value,
 ) !void {
     const args = (try value.unwrapArray()).data;
@@ -38,27 +37,27 @@ pub fn handle(
     if (std.ascii.eqlIgnoreCase("ping", command)) {
         _ = try ctx.connection.stream.write("+PONG\r\n");
     } else if (std.ascii.eqlIgnoreCase("echo", command)) {
-        try handleEcho(T, ctx, &iter);
+        try handleEcho(ctx, &iter);
     } else if (std.ascii.eqlIgnoreCase("get", command)) {
-        try handleGet(T, ctx, &iter);
+        try handleGet(ctx, &iter);
     } else if (std.ascii.eqlIgnoreCase("set", command)) {
-        try handleSet(T, ctx, &iter);
+        try handleSet(ctx, &iter);
     } else if (std.ascii.eqlIgnoreCase("config", command)) {
-        try handleConfig(T, ctx, &iter);
+        try handleConfig(ctx, &iter);
     } else if (std.ascii.eqlIgnoreCase("info", command)) {
-        try handleInfo(T, ctx, &iter);
+        try handleInfo(ctx, &iter);
     } else {
         return error.UnknownCommand;
     }
 }
 
-fn handleEcho(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
+fn handleEcho(ctx: anytype, iter: *resp.ValueIterator) !void {
     const paramRaw = (try expectArg(iter)).raw;
 
     _ = try ctx.connection.stream.write(paramRaw);
 }
 
-fn handleGet(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
+fn handleGet(ctx: anytype, iter: *resp.ValueIterator) !void {
     const key = (try expectArg(iter)).data;
 
     if (datastore.get(@TypeOf(ctx.datastore.*), ctx.datastore, key)) |data| {
@@ -71,7 +70,7 @@ fn handleGet(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
     }
 }
 
-fn handleSet(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
+fn handleSet(ctx: anytype, iter: *resp.ValueIterator) !void {
     const k = (try expectArg(iter)).data;
     const v = (try expectArg(iter)).data;
 
@@ -94,7 +93,7 @@ fn handleSet(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
     }
 }
 
-fn handleConfig(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
+fn handleConfig(ctx: anytype, iter: *resp.ValueIterator) !void {
     const subcommand = (try expectArg(iter)).data;
 
     if (std.ascii.eqlIgnoreCase("get", subcommand)) {
@@ -124,7 +123,7 @@ fn handleConfig(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
     }
 }
 
-fn handleInfo(comptime T: type, ctx: T, iter: *resp.ValueIterator) !void {
+fn handleInfo(ctx: anytype, iter: *resp.ValueIterator) !void {
     const section = (try expectArg(iter)).data;
 
     if (std.ascii.eqlIgnoreCase("replication", section)) {
