@@ -104,4 +104,6 @@ test "duplicate arguments" {
 
     const config = try process(@TypeOf(iter), &iter, std.testing.allocator);
     defer config.deinit(std.testing.allocator);
+
+    try std.testing.expect(std.mem.eql(u8, "fdsa", config.dbfilename.?));
 }
