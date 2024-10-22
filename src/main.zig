@@ -54,6 +54,8 @@ fn handleConnection(
 }
 
 pub fn main() !void {
+    var args = std.process.args();
+
     const stdout = std.io.getStdOut().writer();
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -63,7 +65,7 @@ pub fn main() !void {
     var store = datastore.InMemoryDataStore.init(allocator);
     defer store.deinit();
 
-    const configuration = try config.process(allocator);
+    const configuration = try config.process(@TypeOf(args), &args, allocator);
     defer configuration.deinit(allocator);
 
     var port: u16 = 6379;
