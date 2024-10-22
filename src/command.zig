@@ -3,7 +3,6 @@ const net = std.net;
 
 const Allocator = std.mem.Allocator;
 
-const config = @import("config.zig");
 const datastore = @import("datastore.zig");
 const resp = @import("resp.zig");
 
@@ -100,7 +99,7 @@ fn handleConfig(ctx: anytype, iter: *resp.ValueIterator) !void {
         const key = (try expectArg(iter)).data;
 
         if (std.ascii.eqlIgnoreCase("dir", key)) {
-            if (ctx.configuration.dir) |dir| {
+            if (ctx.cmdline.dir) |dir| {
                 const formatted = try std.fmt.allocPrint(ctx.allocator, "*2\r\n$3\r\ndir\r\n${d}\r\n{s}\r\n", .{ dir.len, dir });
                 defer ctx.allocator.free(formatted);
 
@@ -109,7 +108,7 @@ fn handleConfig(ctx: anytype, iter: *resp.ValueIterator) !void {
                 _ = try ctx.connection.stream.write("$-1\r\n");
             }
         } else if (std.ascii.eqlIgnoreCase("dbfilename", key)) {
-            if (ctx.configuration.dbfilename) |dbfilename| {
+            if (ctx.cmdline.dbfilename) |dbfilename| {
                 const formatted = try std.fmt.allocPrint(ctx.allocator, "*2\r\n$10\r\ndbfilename\r\n${d}\r\n{s}\r\n", .{ dbfilename.len, dbfilename });
                 defer ctx.allocator.free(formatted);
 
@@ -127,7 +126,7 @@ fn handleInfo(ctx: anytype, iter: *resp.ValueIterator) !void {
     const section = (try expectArg(iter)).data;
 
     if (std.ascii.eqlIgnoreCase("replication", section)) {
-        if (ctx.configuration.replicaof) |_| {
+        if (ctx.cmdline.replicaof) |_| {
             _ = try ctx.connection.stream.write("$10\r\nrole:slave\r\n");
         } else {
             _ = try ctx.connection.stream.write("$11\r\nrole:master\r\n");

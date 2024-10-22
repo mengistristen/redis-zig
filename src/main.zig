@@ -1,8 +1,8 @@
 const std = @import("std");
 const net = std.net;
 
+const args = @import("args.zig");
 const command = @import("command.zig");
-const config = @import("config.zig");
 const datastore = @import("datastore.zig");
 const resp = @import("resp.zig");
 
@@ -44,7 +44,7 @@ fn handleConnection(
 }
 
 pub fn main() !void {
-    var args = std.process.args();
+    var args_iter = std.process.args();
 
     const stdout = std.io.getStdOut().writer();
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -55,15 +55,15 @@ pub fn main() !void {
     var store = datastore.InMemoryDataStore.init(allocator);
     defer store.deinit();
 
-    const configuration = config.process(@TypeOf(args), &args, allocator) catch {
-        config.printHelp();
+    const cmdline = args.process(@TypeOf(args_iter), &args_iter, allocator) catch {
+        args.printHelp();
         std.process.exit(1);
     };
-    defer configuration.deinit(allocator);
+    defer cmdline.deinit(allocator);
 
     var port: u16 = 6379;
 
-    if (configuration.port) |config_port| {
+    if (cmdline.port) |config_port| {
         port = config_port;
     }
 
@@ -80,7 +80,7 @@ pub fn main() !void {
 
         const thread = try std.Thread.spawn(.{}, handleConnection, .{.{
             .allocator = allocator,
-            .configuration = configuration,
+            .cmdline = cmdline,
             .connection = connection,
             .datastore = &store,
         }});
